@@ -1,0 +1,761 @@
+openapi: 3.0.3
+info:
+  title: Thirp Control Plane API
+  version: "1.0.0"
+  description: Versioned JSON API for Thirp Cloud Pilot. Public `/v1` is tenant-facing. `/healthz` and `/readyz` are unauthenticated liveness/readiness. `/console` is an HTML presentation over this API, not a second contract. Audit events are retained 90 days. Usage is derived from connection records. Webhook POSTs are HMAC-SHA256 over `{unix_seconds}.{body}` with headers Thirp-Timestamp, Thirp-Signature (`t=...,v1=...`), Thirp-Event-Id, and Idempotency-Key; replay window is 5 minutes.
+servers:
+  - url: https://api.thirp.net
+paths:
+  /v1/openapi.yaml:
+    get:
+      summary: OpenAPI document
+      security: []
+      responses:
+        "200":
+          description: YAML contract
+  /v1/auth/login/start:
+    post:
+      summary: Start login
+      security: []
+      responses:
+        "200":
+          description: Authorization URL and PKCE verifier
+  /v1/auth/login/complete:
+    post:
+      summary: Complete login
+      security: []
+      responses:
+        "200":
+          description: Session token and expires_at
+  /v1/auth/login/browser:
+    get:
+      summary: Browser login redirect to the identity provider
+      security: []
+      responses:
+        "302":
+          description: Redirect to IdP or local callback
+  /v1/auth/oidc/callback:
+    get:
+      summary: OIDC/browser login callback
+      security: []
+      responses:
+        "302":
+          description: Sets session cookie (Path=/) and redirects to next (device page or /console)
+  /v1/session:
+    get:
+      summary: Current user, memberships, and session expiry
+      responses:
+        "200":
+          description: user, memberships with scope, expires_at
+        "401":
+          description: Unauthenticated
+  /v1/auth/session/refresh:
+    post:
+      summary: Rotate the current session token
+      responses:
+        "200":
+          description: New session token and expires_at
+  /v1/auth/device:
+    post:
+      summary: Start device authorization
+      security: []
+      responses:
+        "200":
+          description: device_code, user_code, verification_uri, interval, expires_in
+    get:
+      summary: Device verification HTML page
+      security: []
+      responses:
+        "200":
+          description: HTML form
+  /v1/auth/device/poll:
+    post:
+      summary: Poll device authorization
+      security: []
+      responses:
+        "200":
+          description: Session token after approval
+        "400":
+          description: authorization_pending, slow_down, expired_token, or access_denied
+  /v1/auth/device/approve:
+    post:
+      summary: Approve or deny a device user code
+      responses:
+        "200":
+          description: Approved
+  /v1/auth/logout:
+    post:
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+  /v1/auth/invitations:
+    get:
+      summary: Pending invitations for the session email
+      responses:
+        "200":
+          description: Invitation list without tokens
+  /v1/auth/invitations/accept:
+    post:
+      summary: Accept invitation by token
+      responses:
+        "200":
+          description: Membership
+  /v1/auth/invitations/{id}/accept:
+    post:
+      summary: Accept invitation by id when session email matches
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Membership
+        "404":
+          description: Unknown, expired, or email mismatch
+  /v1/organizations:
+    get:
+      summary: List organizations for the session user
+      responses:
+        "200":
+          description: Organization list
+  /v1/organizations/{org_id}:
+    get:
+      summary: Get organization
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      responses:
+        "200":
+          description: Organization
+  /v1/organizations/{org_id}/memberships:
+    get:
+      summary: List memberships
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Membership list
+  /v1/organizations/{org_id}/memberships/{id}:
+    get:
+      summary: Get membership
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Membership
+  /v1/organizations/{org_id}/memberships/{id}/suspend:
+    post:
+      summary: Suspend membership
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Membership
+  /v1/organizations/{org_id}/memberships/{id}/remove:
+    post:
+      summary: Remove membership
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Membership
+  /v1/organizations/{org_id}/memberships/{id}/role:
+    post:
+      summary: Change membership role
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Membership
+  /v1/organizations/{org_id}/invitations:
+    get:
+      summary: List pending invitations in actor scope
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Invitation list without tokens
+    post:
+      summary: Invite by email
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201":
+          description: Invitation token once
+  /v1/organizations/{org_id}/invitations/{id}/revoke:
+    post:
+      summary: Revoke invitation
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Revoked
+  /v1/organizations/{org_id}/environments:
+    get:
+      summary: List environments
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Environment list
+    post:
+      summary: Create environment
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201":
+          description: Environment
+  /v1/organizations/{org_id}/environments/{id}:
+    get:
+      summary: Get environment
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Environment
+    patch:
+      summary: Update environment
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Environment
+  /v1/organizations/{org_id}/environments/{id}/disable:
+    post:
+      summary: Disable environment
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Environment
+  /v1/organizations/{org_id}/environments/{id}/archive:
+    post:
+      summary: Archive environment
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Environment
+  /v1/organizations/{org_id}/services:
+    get:
+      summary: List services
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: environment_id
+          in: query
+          schema: {type: string, format: uuid}
+      responses:
+        "200":
+          description: Service list
+    post:
+      summary: Create service
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201":
+          description: Service
+  /v1/organizations/{org_id}/services/{id}:
+    get:
+      summary: Get service
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Service with catalog `state` and `registration` live status
+    patch:
+      summary: Update service
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Service
+  /v1/organizations/{org_id}/services/{id}/disable:
+    post:
+      summary: Disable service
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Service
+  /v1/organizations/{org_id}/services/{id}/archive:
+    post:
+      summary: Archive service
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Service
+  /v1/organizations/{org_id}/audit-events:
+    get:
+      summary: List audit events
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - {name: action, in: query, schema: {type: string}}
+        - {name: since, in: query, schema: {type: string, format: date-time}}
+        - {name: until, in: query, schema: {type: string, format: date-time}}
+        - {name: correlation_id, in: query, schema: {type: string, format: uuid}}
+        - {name: environment_id, in: query, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Audit list (90-day retention; until older than retention is 400)
+  /v1/organizations/{org_id}/audit-events/export:
+    get:
+      summary: Export audit events as JSON or CSV
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: format, in: query, schema: {type: string, enum: [json, csv]}}
+        - {name: action, in: query, schema: {type: string}}
+        - {name: since, in: query, schema: {type: string, format: date-time}}
+        - {name: until, in: query, schema: {type: string, format: date-time}}
+        - {name: correlation_id, in: query, schema: {type: string, format: uuid}}
+        - {name: environment_id, in: query, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: items array (JSON) or CSV; hard cap 10000 rows; over-cap is 400 invalid_request. Appends audit.export.
+  /v1/organizations/{org_id}/usage:
+    get:
+      summary: Usage summary for a time window
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: from, in: query, schema: {type: string, format: date-time}}
+        - {name: to, in: query, schema: {type: string, format: date-time}}
+        - {name: environment_id, in: query, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Gauges plus windowed connection counters and quotas. Default window last 24h, max 90 days.
+  /v1/organizations/{org_id}/events:
+    get:
+      summary: Poll organization vendor events
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Monotonic seq cursor. Metadata payload only.
+  /v1/organizations/{org_id}/webhooks:
+    get:
+      summary: List webhook endpoints
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      responses:
+        "200":
+          description: Webhook list (secret omitted)
+    post:
+      summary: Create webhook endpoint
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      responses:
+        "201":
+          description: Endpoint including secret once
+  /v1/organizations/{org_id}/webhooks/{wid}:
+    get:
+      summary: Get webhook endpoint
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: wid, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Endpoint without secret
+  /v1/organizations/{org_id}/webhooks/{wid}/disable:
+    post:
+      summary: Disable webhook endpoint
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: wid, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Disabled endpoint
+  /v1/organizations/{org_id}/webhooks/{wid}/deliveries:
+    get:
+      summary: List webhook deliveries
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: wid, in: path, required: true, schema: {type: string, format: uuid}}
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Delivery attempts including failed/dead-letter
+  /healthz:
+    get:
+      summary: Liveness
+      responses:
+        "200":
+          description: Process is up
+  /readyz:
+    get:
+      summary: Readiness
+      responses:
+        "200":
+          description: Store is reachable
+        "503":
+          description: Store unavailable
+  /v1/regions/{id}:
+    get:
+      summary: Inspect region endpoint, state, and operational_status
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Region with operational_status (healthy|draining|replacing|unavailable) and optional active broker summary
+  /v1/organizations/{org_id}/identities:
+    get:
+      summary: List integration identities
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Identity list
+    post:
+      summary: Create integration identity
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201":
+          description: Identity
+  /v1/organizations/{org_id}/identities/{id}:
+    get:
+      summary: Get identity
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Identity
+  /v1/organizations/{org_id}/identities/{id}/disable:
+    post:
+      summary: Disable identity
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Identity
+  /v1/organizations/{org_id}/identities/{id}/credentials:
+    post:
+      summary: Issue or rotate credential
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "201":
+          description: Credential plaintext once
+  /v1/organizations/{org_id}/identities/{id}/credentials/{cid}/revoke:
+    post:
+      summary: Revoke credential
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: cid, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Revoked
+  /v1/organizations/{org_id}/environments/{env_id}/agents:
+    post:
+      summary: Create Agent and one-use enrollment token
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/EnvId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201":
+          description: Agent and enrollment token once
+  /v1/organizations/{org_id}/agents:
+    get:
+      summary: List Agents
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Agent list
+  /v1/organizations/{org_id}/agents/{id}:
+    get:
+      summary: Get Agent
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Agent including `last_seen_at` and `online`
+  /v1/organizations/{org_id}/agents/{id}/disable:
+    post:
+      summary: Disable Agent
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Agent
+  /v1/organizations/{org_id}/agents/{id}/credentials:
+    post:
+      summary: Rotate Agent credential
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "201":
+          description: Agent credential plaintext once
+  /v1/organizations/{org_id}/agents/{id}/credentials/{cid}/revoke:
+    post:
+      summary: Revoke Agent credential
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: cid, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Revoked
+  /v1/organizations/{org_id}/environments/{env_id}/enrollments/{id}/revoke:
+    post:
+      summary: Revoke unused enrollment
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/EnvId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Revoked
+  /v1/agent-enrollments/exchange:
+    post:
+      summary: Exchange enrollment token for Agent credential
+      security: []
+      responses:
+        "201":
+          description: Agent credential, region endpoint, and TLS fields once
+  /v1/organizations/{org_id}/environments/{env_id}/access-requests:
+    post:
+      summary: Create an access request for one Service
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/EnvId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201":
+          description: Access request
+  /v1/organizations/{org_id}/access-requests:
+    get:
+      summary: List access requests
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: environment_id
+          in: query
+          schema: {type: string, format: uuid}
+        - name: service_id
+          in: query
+          schema: {type: string}
+        - name: state
+          in: query
+          schema: {type: string}
+      responses:
+        "200":
+          description: Access request list
+  /v1/organizations/{org_id}/access-requests/{id}:
+    get:
+      summary: Get access request
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Access request
+  /v1/organizations/{org_id}/access-requests/{id}/cancel:
+    post:
+      summary: Cancel a Requested access request
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Access request
+  /v1/organizations/{org_id}/access-requests/{id}/approve:
+    post:
+      summary: Approve a Requested access request and create a grant
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Access grant
+  /v1/organizations/{org_id}/access-requests/{id}/deny:
+    post:
+      summary: Deny a Requested access request
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Access request
+  /v1/organizations/{org_id}/access-grants:
+    get:
+      summary: List access grants
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: environment_id
+          in: query
+          schema: {type: string, format: uuid}
+        - name: service_id
+          in: query
+          schema: {type: string}
+        - name: state
+          in: query
+          schema: {type: string}
+      responses:
+        "200":
+          description: Access grant list
+  /v1/organizations/{org_id}/access-grants/{id}:
+    get:
+      summary: Get access grant
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Access grant
+  /v1/organizations/{org_id}/access-grants/{id}/revoke:
+    post:
+      summary: Revoke an access grant and RESET its streams
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Access grant
+  /v1/organizations/{org_id}/access-grants/{id}/credentials:
+    post:
+      summary: Issue a short-lived Caller credential (`thirp_cal_`) for an Active grant
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "201":
+          description: Caller credential plaintext once
+  /v1/organizations/{org_id}/connections:
+    get:
+      summary: List connection records
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: environment_id
+          in: query
+          schema: {type: string, format: uuid}
+      responses:
+        "200":
+          description: Connection list
+  /v1/organizations/{org_id}/connections/{id}:
+    get:
+      summary: Get connection record
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Connection record
+components:
+  parameters:
+    OrgId:
+      name: org_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    EnvId:
+      name: env_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      schema:
+        type: string
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              enum:
+                - unauthorized
+                - mfa_required
+                - not_found
+                - invalid_request
+                - conflict
+                - suspended
+                - disabled
+                - archived
+                - rate_limited
+                - idempotency_conflict
+                - quota_exceeded
+                - internal
+            message:
+              type: string
+            request_id:
+              type: string
+security:
+  - bearerAuth: []
+x-rate-limits:
+  authenticated_reads: 120/min
+  authenticated_writes: 30/min
+  login: 10 failures / 15 min per challenge
+  enrollment_exchange: 10 failures / 15 min

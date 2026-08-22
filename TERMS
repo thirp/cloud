@@ -1,0 +1,12 @@
+# Thirp Cloud CLI terms
+
+You may run the `thirp` CLI to use Thirp Cloud.
+
+There is no warranty. The software is provided as-is.
+
+These terms do not grant rights to the hosted Thirp Cloud service
+implementation. That source is not in this repository.
+
+Do not strip copyright or attribution notices from the CLI, TERMS, or NOTICE.
+
+Thirp Runtime and OpenSSL remain licensed under Apache-2.0. See NOTICE.

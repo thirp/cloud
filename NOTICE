@@ -1,0 +1,6 @@
+Thirp Cloud CLI
+
+This product links Thirp Runtime (Apache-2.0) and system OpenSSL 3
+(libssl and libcrypto, Apache-2.0). OpenSSL is not vendored.
+
+Thirp Runtime source: https://github.com/thirp/runtime

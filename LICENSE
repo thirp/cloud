@@ -1,0 +1,10 @@
+This repository is a public distribution surface for Thirp Cloud.
+
+Documentation and the OpenAPI contract in this repository are licensed
+under Creative Commons Attribution 4.0 International (CC-BY-4.0).
+
+The `thirp` CLI binaries are governed by the TERMS file, not by this
+LICENSE and not by Apache-2.0.
+
+The Thirp Cloud service implementation is not in this repository and is
+not licensed here.
