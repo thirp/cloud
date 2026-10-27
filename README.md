@@ -2,26 +2,28 @@
 
 This repository contains public documentation, API contracts, and downloadable client releases for Thirp Cloud. The Thirp Cloud service implementation is proprietary. The open-source data plane is Thirp Runtime at [github.com/thirp/runtime](https://github.com/thirp/runtime).
 
-Thirp Runtime is the open-source named-Service data plane. Thirp Cloud adds managed identity, customer approval, timed grants, audit, usage, and hosted operation.
+Thirp Runtime is the open-source named-Service data plane. Thirp Cloud adds managed identity, customer-controlled approval (per request or expressly delegated to the vendor with audit), timed grants, audit, usage, and hosted operation.
 
 ## CLI
 
-The public command is `thirp`. First release archive: `thirp-cli-0.1.0-linux-amd64`. Windows and macOS archives are reserved for a later release; they are not shipped here.
+The public command is `thirp`. A release attaches the `thirp-cli-0.1.0-*` archives that were built. The release notes name them. `darwin-arm64` is not attached until that Mac build exists.
 
 Implemented commands:
 
 ```
-usage: thirp login [--device] [--api-url URL]
-       thirp logout
-       thirp organizations list
-       thirp environments list
-       thirp services list
-       thirp services status SERVICE
-       thirp access request SERVICE --duration DURATION --reason TEXT [--case ID]
-       thirp access status REQUEST_OR_GRANT
-       thirp access revoke GRANT
-       thirp connect SERVICE --listen 127.0.0.1:PORT
-       thirp agent enroll ENROLLMENT_TOKEN [--dir PATH]
+usage: thirp  []
+       thirp 
+       thirp  
+       thirp  
+       thirp  
+       thirp   SERVICE
+       thirp   SERVICE [ SERVICE]  DURATION  TEXT [ ID]
+       thirp   REQUEST_OR_GRANT
+       thirp   GRANT
+       thirp  SERVICE  127.0.0.1:PORT
+       thirp   ENROLLMENT_TOKEN [ PATH]
+global:  URL  (all commands; also ; else login-saved config; else )
+         PATH
 ```
 
 `thirp connect` does not create an access request. Request access, wait for an Approver, then connect.
@@ -34,7 +36,7 @@ Install and usage: [docs/cli.md](docs/cli.md).
 
 ## API
 
-Public contract: [openapi/v1.yaml](openapi/v1.yaml), also served at `GET /v1/openapi.yaml` on `https://api.thirp.net`. It covers `/v1`, `/healthz`, `/readyz`. The console is `https://api.thirp.net/console`, an HTML presentation over that API, not a second contract.
+Public contract: [openapi/v1.yaml](openapi/v1.yaml), also served at `GET /v1/openapi.yaml` on `https://api.thirp.io`. It covers `/v1`, `/healthz`, `/readyz`. The console is `https://api.thirp.io/console`, an HTML presentation over that API, not a second contract.
 
 ## Docs
 
@@ -42,6 +44,7 @@ Public contract: [openapi/v1.yaml](openapi/v1.yaml), also served at `GET /v1/ope
 - [Access requests and grants](docs/access.md)
 - [Customer Approver](docs/approver.md)
 - [Agent enrollment](docs/enroll.md)
+- [Publishing a log file as a Service](docs/log_files.md)
 - [Interruption behavior](docs/interruption.md)
 - [Privacy and metadata](docs/privacy.md)
 - [Webhooks](docs/webhooks.md)
