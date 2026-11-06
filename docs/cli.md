@@ -12,7 +12,8 @@ The installed command is `thirp`. A [GitHub Release](https://github.com/thirp/cl
 ## Commands
 
 ```
-usage: thirp  []
+usage: thirp  [] [ ID] [ ID]
+        headless login uses 
        thirp 
        thirp  
        thirp  
@@ -41,7 +42,7 @@ Windows: the binary links OpenSSL statically and the CRT statically. Do not inst
 
 ## Session
 
-The compiled default API origin is `https://api.thirp.io`. Resolution order is `--api-url`, then `THIRP_API_URL`, then the `api_url` saved by login, then that default. Pilot and a local control plane use the override, for example `--api-url https://pilot.thirp.net`. Local deploys pass `--api-url`. This repository does not activate DNS. `--organization` and `--environment` also read `THIRP_ORGANIZATION` and `THIRP_ENVIRONMENT`.
+The compiled default API origin is `https://api.thirp.io`. Resolution order is `--api-url`, then `THIRP_API_URL`, then the `api_url` saved by login, then that default. A local control plane uses the override, for example `--api-url http://127.0.0.1:8080`. Local deploys pass `--api-url`. This repository does not activate DNS. `--organization` and `--environment` also read `THIRP_ORGANIZATION` and `THIRP_ENVIRONMENT`.
 
 The session token is a file, on every OS. macOS Keychain and Windows Credential Manager are not used.
 

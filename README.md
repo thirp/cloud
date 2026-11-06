@@ -11,7 +11,8 @@ The public command is `thirp`. A release attaches the `thirp-cli-0.1.0-*` archiv
 Implemented commands:
 
 ```
-usage: thirp  []
+usage: thirp  [] [ ID] [ ID]
+        headless login uses 
        thirp 
        thirp  
        thirp  
@@ -44,6 +45,8 @@ Public contract: [openapi/v1.yaml](openapi/v1.yaml), also served at `GET /v1/ope
 - [Access requests and grants](docs/access.md)
 - [Customer Approver](docs/approver.md)
 - [Agent enrollment](docs/enroll.md)
+- [MCP tools](docs/agents.md)
+- [Example diagnose skill — EXAMPLE ONLY](docs/examples/diagnose-skill.md)
 - [Publishing a log file as a Service](docs/log_files.md)
 - [Interruption behavior](docs/interruption.md)
 - [Privacy and metadata](docs/privacy.md)

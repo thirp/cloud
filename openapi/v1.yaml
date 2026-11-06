@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Thirp Control Plane API
   version: "1.0.0"
-  description: Versioned JSON API for Thirp Cloud Pilot. Public `/v1` is tenant-facing. `/healthz` and `/readyz` are unauthenticated liveness/readiness. `/console` is an HTML presentation over this API, not a second contract. Audit events are retained 90 days. Usage is derived from connection records. Webhook POSTs are HMAC-SHA256 over `{unix_seconds}.{body}` with headers Thirp-Timestamp, Thirp-Signature (`t=...,v1=...`), Thirp-Event-Id, and Idempotency-Key; replay window is 5 minutes.
+  description: Versioned JSON API for Thirp Cloud. Public `/v1` is tenant-facing. `/healthz` and `/readyz` are unauthenticated liveness/readiness. `/console` is an HTML presentation over this API, not a second contract. Audit events are retained 90 days. Usage is derived from connection records. Webhook POSTs are HMAC-SHA256 over `{unix_seconds}.{body}` with headers Thirp-Timestamp, Thirp-Signature (`t=...,v1=...`), Thirp-Event-Id, and Idempotency-Key; replay window is 5 minutes.
 servers:
   - url: https://api.thirp.io
 paths:
@@ -143,34 +143,67 @@ paths:
           description: Unknown, expired, or email mismatch
   /v1/signup:
     post:
-      summary: Self-serve trial signup
-      security: []
-      description: Issues one admission per email domain. Over the per-IP or per-domain burst the response is signup_refused and does not say whether an account exists. A duplicate under the burst returns the same accepted body.
+      summary: Create an organization as its owner
+      description: Requires a signed-in session with a verified email. Body email is ignored. In one transaction, applies existing IP/domain signup limits and creates the organization, owner membership, subscription and audit. An eligible first organization starts its trial immediately; later organizations get needs_plan and can check out. No admission or operator step. With THIRP_SIGNUP_REQUIRE_CARD enabled, eligible first organizations also get needs_plan, and Checkout collects a card with subscription_data[trial_period_days] set to the trial length. The US business and Terms/Privacy attestation is accept_terms; there is no geo-block or qualification gate.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [email, name, slug]
+              required: [name, slug, accept_terms]
               properties:
-                email: {type: string}
                 name: {type: string}
                 slug: {type: string}
+                accept_terms: {type: boolean, enum: [true]}
       responses:
-        "202":
-          description: Accepted. The admission link is mailed without a token.
+        "201":
+          description: Organization created. trial_started determines organization overview versus Billing destination.
+          content:
+            application/json:
+              schema: &signup_response
+                type: object
+                required: [organization_id, slug, trial_started, checkout_required]
+                properties:
+                  organization_id: {type: string, format: uuid}
+                  slug: {type: string}
+                  trial_started: {type: boolean}
+                  checkout_required: {type: boolean, description: Eligible card-required signup; console opens existing monthly Checkout with zero extras.}
+        "200":
+          description: Idempotent repeat for the same slug already owned by the session user.
+          content:
+            application/json:
+              schema: *signup_response
         "400":
-          description: invalid_request
+          description: terms_not_accepted (accept_terms absent or not true), or invalid_request (invalid name/slug).
+        "401":
+          description: unauthorized (missing or unusable session).
+        "403":
+          description: email_unverified (no verified session email; unverified OIDC login is also refused before session issuance).
+        "409":
+          description: slug_taken. The error envelope includes a top-level suggested_slug containing an available suffixed slug, such as acme-2.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error, suggested_slug]
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code: {type: string, enum: [slug_taken]}
+                      message: {type: string}
+                      request_id: {type: string}
+                  suggested_slug: {type: string}
         "429":
-          description: signup_refused
+          description: signup_refused (existing per-IP or per-domain signup rate limit).
   /v1/billing/webhook:
     post:
-      summary: Paddle billing webhook
+      summary: Stripe billing webhook
       security: []
-      description: Verifies Paddle-Signature (HMAC-SHA256 over ts:rawBody, 5 second skew). Idempotent on event id. Does not store the payload.
+      description: Verifies Stripe-Signature (HMAC-SHA256 over t.rawBody, 300 second skew; accept any matching v1 signature). Idempotent on event id. Does not store the payload. Handles checkout.session.completed, customer.subscription.created, customer.subscription.updated, customer.subscription.deleted, customer.subscription.paused, customer.subscription.resumed, invoice.paid, invoice.payment_failed, invoice.finalization_failed, charge.refunded, and charge.dispute.created. Unknown events are recorded and acknowledged without applying.
       parameters:
-        - {name: Paddle-Signature, in: header, required: true, schema: {type: string}}
+        - {name: Stripe-Signature, in: header, required: true, schema: {type: string}}
       requestBody:
         required: true
         content:
@@ -182,17 +215,17 @@ paths:
           description: Event recorded
         "400":
           description: invalid_request (missing header, bad signature, or stale timestamp)
-  /v1/pilot-admission:
+  /v1/admission:
     get:
-      summary: Inspect current pilot admission for the session email
+      summary: Inspect the current admission for the session email
       responses:
         "200":
           description: Admission without token
         "404":
           description: No matching issued or accepted admission
-  /v1/pilot-admission/accept:
+  /v1/admission/accept:
     post:
-      summary: Accept pilot admission and create Organization
+      summary: Accept admission and create Organization
       requestBody:
         required: true
         content:
@@ -299,14 +332,19 @@ paths:
           description: Revoked
   /v1/organizations/{org_id}/environments:
     get:
-      summary: List environments
+      operationId: list_environments
+      summary: list environments
+      description: List environments with additive agent_status (online, offline, missing-agent) and Services.
       parameters:
-        - $ref: "#/components/parameters/OrgId"
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Cursor"
+        - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+        - {"name":"limit","in":"query","schema":{"type":"integer"}}
+        - {"name":"cursor","in":"query","schema":{"type":"string"}}
       responses:
         "200":
-          description: Environment list
+          description: Successful existing API response
+          content:
+            application/json:
+              schema: {"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"agent_status":{"type":"string","enum":["online","offline","missing-agent"]},"services":{"type":"array","items":{"type":"object"}}}}},"next_cursor":{"type":"string","nullable":true}}}
     post:
       summary: Create environment
       parameters:
@@ -426,22 +464,24 @@ paths:
           description: Service
   /v1/organizations/{org_id}/audit-events:
     get:
-      summary: List audit events
+      operationId: list_audit
+      summary: list audit
+      description: Existing audit list with existing scope and filters.
       parameters:
-        - $ref: "#/components/parameters/OrgId"
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Cursor"
-        - {name: action, in: query, schema: {type: string}}
-        - {name: since, in: query, schema: {type: string, format: date-time}}
-        - {name: until, in: query, schema: {type: string, format: date-time}}
-        - {name: correlation_id, in: query, schema: {type: string, format: uuid}}
-        - {name: environment_id, in: query, schema: {type: string, format: uuid}}
-        - {name: actor_id, in: query, schema: {type: string}}
-        - {name: order, in: query, schema: {type: string, enum: [asc, desc], default: desc}}
-        - {name: offset, in: query, schema: {type: integer, minimum: 0}}
+        - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+        - {"name":"limit","in":"query","schema":{"type":"integer"}}
+        - {"name":"cursor","in":"query","schema":{"type":"string"}}
+        - {"name":"action","in":"query","schema":{"type":"string"}}
+        - {"name":"since","in":"query","schema":{"type":"string","format":"date-time"}}
+        - {"name":"until","in":"query","schema":{"type":"string","format":"date-time"}}
+        - {"name":"correlation_id","in":"query","schema":{"type":"string"}}
+        - {"name":"environment_id","in":"query","schema":{"type":"string"}}
+        - {"name":"actor_id","in":"query","schema":{"type":"string"}}
+        - {"name":"order","in":"query","schema":{"type":"string"}}
+        - {"name":"offset","in":"query","schema":{"type":"integer"}}
       responses:
         "200":
-          description: Audit list with actor/environment/target display names (90-day retention; until older than retention is 400). Default order is newest first by occurred_at.
+          description: Successful existing API response
   /v1/organizations/{org_id}/audit-events/export:
     get:
       summary: Export audit events as JSON or CSV
@@ -465,24 +505,47 @@ paths:
         - $ref: "#/components/parameters/OrgId"
       responses:
         "200":
-          description: Status, days_left, and read_only. Empty status when the organization has no subscription row.
+          description: Status, plan, extra Environments, environment quota, billing period, days_left, read_only, and the display amounts. Empty status when the organization has no subscription row.
   /v1/organizations/{org_id}/billing/checkout:
     post:
-      summary: Paddle checkout parameters
-      description: Owner with MFA. Returns the monthly price id, the annual price id when it is set, the existing customer id, and the client token. The token is not compiled into the console.
+      summary: Stripe-hosted Checkout session
+      description: Owner with MFA. Body is interval (month or year) and extra_env_quantity. Creates a Stripe-hosted Checkout Session. Extra Environments are split across up to three prices. Quantity above 497 is 400 Talk to us; missing required band prices are invalid request.
       parameters:
         - $ref: "#/components/parameters/OrgId"
       responses:
         "200":
-          description: price_id, customer_id, client_token, and price_id_annual when the annual price id is set
+          description: Stripe-hosted Checkout URL
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url]
+                properties:
+                  url: {type: string, format: uri, description: Stripe-hosted Checkout URL}
+  /v1/organizations/{org_id}/billing/subscription:
+    post:
+      summary: Update extra Environment quantity on the current subscription
+      description: Owner with MFA and a live subscription. Body is extra_env_quantity. The server recomputes the band split and POSTs a Stripe subscription update to /v1/subscriptions/{id} with the full items list and proration_behavior always_invoice. Quantity above 497 is 400 Talk to us.
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      responses:
+        "200":
+          description: Stripe subscription update with proration_behavior always_invoice
   /v1/organizations/{org_id}/billing/portal:
     post:
-      summary: Paddle customer portal session
+      summary: Stripe customer portal session
       parameters:
         - $ref: "#/components/parameters/OrgId"
       responses:
         "200":
-          description: Portal url
+          description: Stripe portal URL
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url]
+                properties:
+                  url: {type: string, format: uri}
   /v1/organizations/{org_id}/usage:
     get:
       summary: Usage summary for a time window
@@ -548,6 +611,12 @@ paths:
       responses:
         "200":
           description: Delivery attempts including failed/dead-letter
+  /status:
+    get:
+      summary: Public status page
+      responses:
+        "200":
+          description: API, database, and broker, each up or down, with the check time
   /healthz:
     get:
       summary: Liveness
@@ -703,14 +772,22 @@ paths:
           description: Agent credential, region endpoint, and TLS fields once
   /v1/organizations/{org_id}/environments/{env_id}/access-requests:
     post:
-      summary: Create an access request for one or more Services
+      operationId: request_access
+      summary: request access
+      description: Create existing time-bounded access request. Supply duration_seconds or requested_end_at.
       parameters:
-        - $ref: "#/components/parameters/OrgId"
-        - $ref: "#/components/parameters/EnvId"
-        - $ref: "#/components/parameters/IdempotencyKey"
+        - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+        - {"name":"env_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"type":"object","properties":{"catalog_service_ids":{"type":"array","minItems":1,"items":{"type":"string","format":"uuid"}},"reason":{"type":"string"},"external_case_id":{"type":"string"},"duration_seconds":{"type":"integer","minimum":60,"maximum":28800},"requested_start_at":{"type":"string","format":"date-time"},"requested_end_at":{"type":"string","format":"date-time"}},"required":["catalog_service_ids","reason"],"additionalProperties":false}
       responses:
+        "200":
+          description: Successful existing API response
         "201":
-          description: Access request with ordered members
+          description: Created
   /v1/organizations/{org_id}/access-requests:
     get:
       summary: List access requests
@@ -732,13 +809,18 @@ paths:
           description: Access request list
   /v1/organizations/{org_id}/access-requests/{id}:
     get:
-      summary: Get access request
+      operationId: grant_status
+      summary: grant status
+      description: Existing request fields plus grants and status pending, active, denied, expired or revoked. Windows and decisions are in grants.
       parameters:
-        - $ref: "#/components/parameters/OrgId"
-        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+        - {"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
       responses:
         "200":
-          description: Access request
+          description: Successful existing API response
+          content:
+            application/json:
+              schema: {"type":"object","properties":{"status":{"type":"string","enum":["pending","active","denied","expired","revoked"]},"grants":{"type":"array","items":{"type":"object","properties":{"valid_from":{"type":"string","format":"date-time"},"valid_until":{"type":"string","format":"date-time"}}}}}}
   /v1/organizations/{org_id}/access-requests/{id}/cancel:
     post:
       summary: Cancel a Requested access request
@@ -805,23 +887,38 @@ paths:
           description: Access grant with created_at and revoked_at
   /v1/organizations/{org_id}/access-grants/{id}/revoke:
     post:
-      summary: Revoke an access grant and RESET its streams
+      operationId: revoke_access
+      summary: revoke access
+      description: Revoke existing grant and reset bounded streams.
       parameters:
-        - $ref: "#/components/parameters/OrgId"
-        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+        - {"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"type":"object","properties":{"reason":{"type":"string"}},"additionalProperties":false}
       responses:
         "200":
-          description: Access grant
+          description: Successful existing API response
   /v1/organizations/{org_id}/access-grants/{id}/credentials:
     post:
-      summary: Issue a short-lived Caller credential (`thirp_cal_`) for an Active grant
+      operationId: connect
+      summary: connect
+      description: Return bounded Caller credential and Broker connection material. CLI or SDK opens the stream; MCP does not carry streams. Refuses outside the grant window.
       parameters:
-        - $ref: "#/components/parameters/OrgId"
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+        - {"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"type":"object","properties":{},"additionalProperties":false}
       responses:
+        "200":
+          description: Successful existing API response
         "201":
-          description: Caller credential plaintext once
+          description: Created
   /v1/organizations/{org_id}/connections:
     get:
       summary: List connection records
@@ -844,6 +941,96 @@ paths:
       responses:
         "200":
           description: Connection record with timestamps and display names
+  /v1/organizations/{org_id}/environment-selections:
+    post:
+      operationId: ensure_environment
+      summary: ensure environment
+      description: Select by external_deployment_id plus external_customer_id when supplied, otherwise by exact trimmed name; create through existing create handler and plan limits. Serialized by the API write mutex. Returns 200 selected or 201 created.
+      parameters:
+        - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"type":"object","properties":{"name":{"type":"string"},"region_id":{"type":"string","format":"uuid"},"external_customer_id":{"type":"string"},"external_deployment_id":{"type":"string"}},"required":["name","region_id"],"additionalProperties":false}
+      responses:
+        "200":
+          description: Successful existing API response
+        "201":
+          description: Created
+  /v1/organizations/{org_id}/environments/{env_id}/agent-installs:
+    post:
+      operationId: send_agent_install
+      summary: send agent install
+      description: Mint existing one-use enrollment and synchronously email it; code never returned or persisted in the outbox. Reusing display_name expands the named Agent Service authorization. Delivery failure revokes the code.
+      parameters:
+        - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+        - {"name":"env_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"type":"object","properties":{"recipient":{"type":"string"},"display_name":{"type":"string"},"service_ids":{"type":"array","minItems":1,"items":{"type":"string"}},"ttl_seconds":{"type":"integer","minimum":1,"maximum":86400}},"required":["recipient","service_ids"],"additionalProperties":false}
+      responses:
+        "200":
+          description: Successful existing API response
+        "201":
+          description: Created
+  /v1/organizations/{org_id}/access-requests/{id}/approve-link:
+    post:
+      operationId: send_approve_link
+      summary: send approve link
+      description: Queue mail to active Environment Approvers. Link opens authenticated console request page; only explicit POST approves. No tool can approve.
+      parameters:
+        - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+        - {"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"type":"object","properties":{},"additionalProperties":false}
+      responses:
+        "200":
+          description: Successful existing API response
+  /v1/organizations/{org_id}/access-requests/{id}/report:
+    get:
+      operationId: get_report
+      summary: get report
+      description: Request and grants with requester, decider, windows, revoke and expiry; matching connections including opened and closed times.
+      parameters:
+        - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+        - {"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+      responses:
+        "200":
+          description: Successful existing API response
+          content:
+            application/json:
+              schema: {"type":"object","properties":{"request":{"type":"object"},"connections":{"type":"array","items":{"type":"object"}},"audit_events":{"type":"array","items":{"type":"object"}}}}
+  /v1/mcp:
+    get:
+      summary: MCP has no server event stream
+      responses:
+        "405":
+          description: Method not allowed; Allow POST
+        "401":
+          description: Authentication required
+    delete:
+      summary: MCP has no server session to terminate
+      responses:
+        "405":
+          description: Method not allowed; Allow POST
+        "401":
+          description: Authentication required
+    post:
+      summary: MCP Streamable HTTP JSON-RPC 2.0
+      description: Stateless JSON responses. Supports initialize, notifications/initialized, ping, tools/list and tools/call. Exactly ten tools whose schemas derive from the matching operation parameters and JSON request body. Same session or Service Identity bearer authentication; an invalid Origin is refused. No server initiated messages or stream transport.
+      responses:
+        "200":
+          description: JSON-RPC response or MCP tool result with isError and existing API error
+        "202":
+          description: Notification accepted
+        "401":
+          description: Missing or invalid authentication
 components:
   parameters:
     OrgId:
@@ -879,6 +1066,10 @@ components:
       schema:
         type: string
   securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: thirp_session
     bearerAuth:
       type: http
       scheme: bearer
@@ -910,6 +1101,7 @@ components:
               type: string
 security:
   - bearerAuth: []
+  - cookieAuth: []
 x-rate-limits:
   authenticated_reads: 480/min
   authenticated_writes: 60/min

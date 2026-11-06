@@ -9,7 +9,7 @@ Do not open a public GitHub issue for an unfixed vulnerability.
 - Product and design-partner questions: `partners@thirp.net`
 - Privacy: `privacy@thirp.net`
 
-`security@thirp.net` is not the pilot-intake mailbox.
+`security@thirp.net` is not a general questions mailbox.
 
 ## Release signing
 
