@@ -41,6 +41,7 @@ Public contract: [openapi/v1.yaml](openapi/v1.yaml), also served at `GET /v1/ope
 
 ## Docs
 
+- [Getting started: Console and Agentic how-to](docs/getting-started.md)
 - [CLI install and usage](docs/cli.md)
 - [Access requests and grants](docs/access.md)
 - [Customer Approver](docs/approver.md)
