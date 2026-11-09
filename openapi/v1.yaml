@@ -144,7 +144,7 @@ paths:
   /v1/signup:
     post:
       summary: Create an organization as its owner
-      description: Requires a signed-in session with a verified email. Body email is ignored. In one transaction, applies existing IP/domain signup limits and creates the organization, owner membership, subscription and audit. An eligible first organization starts its trial immediately; later organizations get needs_plan and can check out. No admission or operator step. With THIRP_SIGNUP_REQUIRE_CARD enabled, eligible first organizations also get needs_plan, and Checkout collects a card with subscription_data[trial_period_days] set to the trial length. The US business and Terms/Privacy attestation is accept_terms; there is no geo-block or qualification gate.
+      description: Requires a signed-in session with a verified email. Body email is ignored. In one transaction, applies existing IP/domain signup limits and creates the organization, owner membership, subscription and audit. An eligible first organization starts its trial immediately; later organizations get needs_plan and can check out. No admission or operator step. With THIRP_SIGNUP_REQUIRE_CARD enabled, eligible first organizations also get needs_plan, and Checkout collects a card with subscription_data[trial_period_days] set to the trial length. With product=platforms, signup creates a Platforms needs_plan account, returns trial_started=false and checkout_required=true, and never consumes Support trial eligibility. Checkout uses Platforms monthly or annual prices with no trial days and no extras. The US business and Terms/Privacy attestation is accept_terms; there is no geo-block or qualification gate.
       requestBody:
         required: true
         content:
@@ -156,6 +156,7 @@ paths:
                 name: {type: string}
                 slug: {type: string}
                 accept_terms: {type: boolean, enum: [true]}
+                product: {type: string, enum: [support, platforms], default: support, description: Platforms requires paid Checkout with no trial and no extra Environments.}
       responses:
         "201":
           description: Organization created. trial_started determines organization overview versus Billing destination.
@@ -168,7 +169,7 @@ paths:
                   organization_id: {type: string, format: uuid}
                   slug: {type: string}
                   trial_started: {type: boolean}
-                  checkout_required: {type: boolean, description: Eligible card-required signup; console opens existing monthly Checkout with zero extras.}
+                  checkout_required: {type: boolean, description: Card-required Support or paid Platforms signup; console opens Checkout with zero extras and the selected Platforms interval (Support defaults monthly).}
         "200":
           description: Idempotent repeat for the same slug already owned by the session user.
           content:
@@ -428,6 +429,7 @@ paths:
   /v1/organizations/{org_id}/services:
     get:
       summary: List services
+      description: Platforms Services belong to the operator account and return environment_id as null. Support Services retain their Environment scope. Archived Services remain in the API list with state archived.
       parameters:
         - $ref: "#/components/parameters/OrgId"
         - $ref: "#/components/parameters/Limit"
@@ -440,6 +442,7 @@ paths:
           description: Service list
     post:
       summary: Create service
+      description: Supply service_id and display_name. Support requires a valid environment_id. Platforms omits environment_id (null or empty also accepted), persists NULL, and creates no Environment. Names follow the existing protocol Service ID validation and are unique per Platforms account among non-archived Services. Platforms includes 10 named Services; an eleventh is refused with quota_exceeded. Archiving frees a slot and the name.
       parameters:
         - $ref: "#/components/parameters/OrgId"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -725,6 +728,15 @@ paths:
         "201":
           description: Agent and enrollment token once
   /v1/organizations/{org_id}/agents:
+    post:
+      summary: Create account Agent and one-use enrollment token
+      description: Paid Platforms owner only. Binds account Services without an Environment. Refuses the eleventh Agent. Support uses the Environment route.
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201":
+          description: Agent with environment_id null and enrollment token once
     get:
       summary: List Agents
       parameters:
@@ -782,6 +794,16 @@ paths:
       responses:
         "200":
           description: Revoked
+  /v1/organizations/{org_id}/enrollments/{id}/revoke:
+    post:
+      summary: Revoke unused account enrollment
+      description: Platforms account scope. Support uses the Environment route.
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Revoked
   /v1/agent-enrollments/exchange:
     post:
       summary: Exchange enrollment token for Agent credential
@@ -808,6 +830,30 @@ paths:
         "201":
           description: Created
   /v1/organizations/{org_id}/access-requests:
+    post:
+      summary: Request access to account Services
+      description: Paid Platforms owner only. Existing request and grant lifecycle, without an Environment. The account owner decides account requests. Support uses the Environment route.
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [catalog_service_ids, reason]
+              properties:
+                catalog_service_ids: {type: array, minItems: 1, items: {type: string, format: uuid}}
+                reason: {type: string}
+                external_case_id: {type: string}
+                duration_seconds: {type: integer, minimum: 60, maximum: 28800}
+                requested_start_at: {type: string, format: date-time}
+                requested_end_at: {type: string, format: date-time}
+              additionalProperties: false
+      responses:
+        "201":
+          description: Account access request with environment_id null
     get:
       summary: List access requests
       parameters:
@@ -924,7 +970,7 @@ paths:
     post:
       operationId: connect
       summary: connect
-      description: Return bounded Caller credential and Broker connection material. CLI or SDK opens the stream; MCP does not carry streams. Refuses outside the grant window.
+      description: Reissue bounded Caller credential and Broker connection material. For an account grant, reissue revokes its previous credentials. CLI or SDK opens the stream; MCP does not carry streams. Refuses outside the grant window.
       parameters:
         - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
         - {"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
@@ -938,6 +984,38 @@ paths:
           description: Successful existing API response
         "201":
           description: Created
+  /v1/organizations/{org_id}/access-grants/{id}/credentials/{cid}/renew:
+    post:
+      summary: Extend the existing Caller credential
+      description: Extend the same unexpired credential by 15 minutes, clipped to its active grant window. Requires the same actor authorization as issuance and a credential belonging to this grant. Returns no token; does not rotate. Revoked, expired, or missing credentials or grants are refused.
+      parameters:
+        - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+        - {"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+        - {"name":"cid","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"type":"object","properties":{},"additionalProperties":false}
+      responses:
+        "200":
+          description: Same credential ID and new expiry; no plaintext secret
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [credential_id, expires_at]
+                properties:
+                  credential_id: {type: string, format: uuid}
+                  expires_at: {type: string, format: date-time}
+        "400":
+          description: Credential or grant expired or revoked
+        "401":
+          description: Authentication required
+        "403":
+          description: Actor not authorized or subscription not writable
+        "404":
+          description: Grant or credential missing, mismatched, or outside actor scope
   /v1/organizations/{org_id}/connections:
     get:
       summary: List connection records

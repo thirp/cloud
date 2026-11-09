@@ -6,7 +6,7 @@ Thirp Runtime is the open-source named-Service data plane. Thirp Cloud adds mana
 
 ## CLI
 
-The public command is `thirp`. A release attaches the `thirp-cli-0.1.0-*` archives that were built. The release notes name them. `darwin-arm64` is not attached until that Mac build exists.
+The public command is `thirp`. A release attaches the `thirp-cli-0.1.1-*` archives that were built. The release notes name them. `darwin-arm64` is not attached until that Mac build exists.
 
 Implemented commands:
 

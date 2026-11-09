@@ -1,13 +1,13 @@
 # thirp CLI
 
-The installed command is `thirp`. A [GitHub Release](https://github.com/thirp/cloud/releases) attaches the `thirp-cli-0.1.0-*` archives that were built. The release notes name them.
+The installed command is `thirp`. A [GitHub Release](https://github.com/thirp/cloud/releases) attaches the `thirp-cli-0.1.1-*` archives that were built. The release notes name them.
 
 | Archive | Machine |
 |---|---|
-| `thirp-cli-0.1.0-linux-amd64` | Linux x86_64 |
-| `thirp-cli-0.1.0-darwin-amd64` | Intel Mac |
-| `thirp-cli-0.1.0-darwin-arm64` | Apple Silicon Mac |
-| `thirp-cli-0.1.0-windows-amd64.exe` | 64-bit Windows |
+| `thirp-cli-0.1.1-linux-amd64` | Linux x86_64 |
+| `thirp-cli-0.1.1-darwin-amd64` | Intel Mac |
+| `thirp-cli-0.1.1-darwin-arm64` | Apple Silicon Mac |
+| `thirp-cli-0.1.1-windows-amd64.exe` | 64-bit Windows |
 
 ## Commands
 
