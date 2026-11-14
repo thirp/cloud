@@ -9,7 +9,7 @@
 3. Files written: `agent.token` mode `0600`, and `agent.conf` with `broker`, `token_file`, `tls_ca` pointing to `broker.crt`, `tls_server_name` when supplied, and the requested `map = SERVICE=IP:port` lines. The token is not inlined. The Broker CA PEM returned by exchange is written beside the config; an empty legacy exchange uses the hosted Broker CA roots. The enroll response supplies the Broker host; hosted names follow `<region>.broker.thirp.io`.
 4. Run `thirp-agent` from a Thirp Runtime **0.16.6** (or later protocol-compatible) release with that config directory.
 
-The source CLI accepts a repeated `--map SERVICE=IP:port` and writes each local TCP target. This source contract is pending release: existing pinned CLI 0.1.2 binaries are unchanged. The new console installer exchanges directly and installs the Runtime service without downloading a CLI. If the thing you want to publish is a log file, see [Publishing a log file as a Service](log_files.md).
+The source CLI accepts a repeated `--map SERVICE=IP:port` and writes each local TCP target. Published CLI 0.1.3 includes it; CLI 0.1.2 and earlier do not. The new console installer exchanges directly and installs the Runtime service without downloading a CLI. If the thing you want to publish is a log file, see [Publishing a log file as a Service](log_files.md).
 
 Enrollment exchange is not idempotent. Persist the response. A used token cannot be exchanged again.
 
