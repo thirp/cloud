@@ -8,3 +8,5 @@ EXAMPLE ONLY. Vendors author their own product checks, interpretation, and remed
 4. Connect: `connect` for each active grant returns a bounded credential, Broker endpoint and TLS name. Use the CLI/SDK to open the stream. Keep credentials private. Run only the vendor's own authorized checks. Streams reset at expiry or revocation.
 5. Report: `get_report` for the request and `list_audit` with Environment/action/time filters; summarize observations with the case ID and connection history. Do not put credentials in reports.
 6. Cleanup: `revoke_access` for every grant when diagnosis finishes, even if a check fails. Confirm `grant_status` is revoked and close the client streams.
+
+For Cloud for Platforms accounts, `send_platform_agent_install` emails the same one-step installer with explicit `os`, `arch`, `service_ids`, and `maps` (Service=numeric-IP:port); enrollment is mail-only.

@@ -9,6 +9,12 @@ customer Approver approves
 thirp connect SERVICE --listen 127.0.0.1:PORT
 ```
 
+Run `thirp login` once per machine; do not copy a config dir between machines.
+Standing listeners on the same machine can share one `--config-dir` and its
+session refresh lock. A session-refresh HTTP 401 exits with
+`event=session_refresh_rejected`; log in again on that machine, then restart
+the listener. See [CLI session storage](cli.md#session).
+
 `thirp connect` does not create an access request.
 
 ## Request

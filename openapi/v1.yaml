@@ -442,7 +442,7 @@ paths:
           description: Service list
     post:
       summary: Create service
-      description: Supply service_id and display_name. Support requires a valid environment_id. Platforms omits environment_id (null or empty also accepted), persists NULL, and creates no Environment. Names follow the existing protocol Service ID validation and are unique per Platforms account among non-archived Services. Platforms includes 10 named Services; an eleventh is refused with quota_exceeded. Archiving frees a slot and the name.
+      description: Supply service_id and display_name. Support requires a valid environment_id. Platforms omits environment_id (null or empty also accepted), persists NULL, and creates no Environment. Names follow the existing protocol Service ID validation and are unique per Platforms account among non-archived Services. Platforms includes 25 named Services; a twenty-sixth is refused with quota_exceeded. Archiving frees a slot and the name.
       parameters:
         - $ref: "#/components/parameters/OrgId"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -747,6 +747,26 @@ paths:
         "200":
           description: Agent list
   /v1/organizations/{org_id}/agents/{id}:
+    patch:
+      summary: Replace an Agent's Services (Owner only)
+      description: Replace authorization, then run install_command on the Agent host to apply local maps and restart the service once. Empty service_ids removes all Services. No Runtime protocol change.
+      parameters:
+        - {name: org_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"type":"object","properties":{"service_ids":{"type":"array","maxItems":25,"uniqueItems":true,"items":{"type":"string"}},"os":{"type":"string"},"arch":{"type":"string"},"maps":{"type":"array","items":{"type":"string"}}},"required":["service_ids"],"additionalProperties":false}
+      responses:
+        "200":
+          description: Agent and optional install_command
+        "400":
+          description: Unknown or duplicate Services, or invalid maps
+        "401":
+          description: Authentication required
+        "403":
+          description: Owner required or plan cap exceeded
     get:
       summary: Get Agent
       parameters:
@@ -1055,6 +1075,35 @@ paths:
           description: Successful existing API response
         "201":
           description: Created
+  /v1/agent-installers/{platform}:
+    get:
+      summary: Get the hash-pinned installer for a shipped platform
+      parameters:
+        - {name: platform, in: path, required: true, schema: {type: string, enum: [linux-amd64, darwin-amd64, darwin-arm64, windows-amd64]}}
+      responses:
+        "200":
+          description: Installer bytes, hash pinned in the one-use receipt or install mail
+  /v1/agent-installers/windows-service.exe:
+    get:
+      summary: Get the unsigned Odin Windows service host
+      responses:
+        "200":
+          description: Native service host, hash pinned in Windows install command
+  /v1/organizations/{org_id}/agent-installs:
+    post:
+      operationId: send_platform_agent_install
+      summary: Email a one-step Platforms Agent install
+      description: Account-scoped, Owner only. Exactly the four shipped OS and architecture pairs. One-use enrollment code is mail-only, hash stored, excluded from response and access logs. Delivery failure revokes it. Maps pair each selected Service with a numeric local TCP endpoint.
+      parameters:
+        - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"type":"object","properties":{"recipient":{"type":"string"},"display_name":{"type":"string"},"service_ids":{"type":"array","minItems":1,"maxItems":25,"uniqueItems":true,"items":{"type":"string"}},"maps":{"type":"array","minItems":1,"maxItems":25,"items":{"type":"string"}},"os":{"type":"string","enum":["linux","darwin","windows"]},"arch":{"type":"string","enum":["amd64","arm64"]},"ttl_seconds":{"type":"integer","minimum":1,"maximum":86400}},"required":["recipient","service_ids","maps","os","arch"],"additionalProperties":false}
+      responses:
+        "201":
+          description: Agent with environment_id null; no enrollment code
   /v1/organizations/{org_id}/environments/{env_id}/agent-installs:
     post:
       operationId: send_agent_install
@@ -1067,7 +1116,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: {"type":"object","properties":{"recipient":{"type":"string"},"display_name":{"type":"string"},"service_ids":{"type":"array","minItems":1,"items":{"type":"string"}},"ttl_seconds":{"type":"integer","minimum":1,"maximum":86400},"os":{"type":"string","enum":["linux","darwin","windows"],"description":"Vendor-supplied Environment OS; supply together with arch. Omit both to reuse stored values."},"arch":{"type":"string","enum":["amd64","arm64"],"description":"Environment architecture. Allowed pairs: linux/amd64, darwin/amd64, darwin/arm64, windows/amd64."}},"required":["recipient","service_ids"],"additionalProperties":false,"oneOf":[{"not":{"anyOf":[{"required":["os"]},{"required":["arch"]}]}},{"required":["os","arch"],"properties":{"os":{"enum":["linux"]},"arch":{"enum":["amd64"]}}},{"required":["os","arch"],"properties":{"os":{"enum":["darwin"]},"arch":{"enum":["amd64"]}}},{"required":["os","arch"],"properties":{"os":{"enum":["darwin"]},"arch":{"enum":["arm64"]}}},{"required":["os","arch"],"properties":{"os":{"enum":["windows"]},"arch":{"enum":["amd64"]}}}]}
+            schema: {"type":"object","properties":{"recipient":{"type":"string"},"display_name":{"type":"string"},"service_ids":{"type":"array","minItems":1,"items":{"type":"string"}},"ttl_seconds":{"type":"integer","minimum":1,"maximum":86400},"os":{"type":"string","enum":["linux","darwin","windows"],"description":"Vendor-supplied Environment OS; supply together with arch. Omit both to reuse stored values."},"arch":{"type":"string","enum":["amd64","arm64"],"description":"Environment architecture. Allowed pairs: linux/amd64, darwin/amd64, darwin/arm64, windows/amd64."},"maps":{"type":"array","minItems":1,"items":{"type":"string"}}},"required":["recipient","service_ids"],"additionalProperties":false,"oneOf":[{"not":{"anyOf":[{"required":["os"]},{"required":["arch"]}]}},{"required":["os","arch"],"properties":{"os":{"enum":["linux"]},"arch":{"enum":["amd64"]}}},{"required":["os","arch"],"properties":{"os":{"enum":["darwin"]},"arch":{"enum":["amd64"]}}},{"required":["os","arch"],"properties":{"os":{"enum":["darwin"]},"arch":{"enum":["arm64"]}}},{"required":["os","arch"],"properties":{"os":{"enum":["windows"]},"arch":{"enum":["amd64"]}}}]}
       responses:
         "200":
           description: Successful existing API response

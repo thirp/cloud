@@ -6,7 +6,7 @@ Thirp Runtime is the open-source named-Service data plane. Thirp Cloud adds mana
 
 ## CLI
 
-The public command is `thirp`. A release attaches the `thirp-cli-0.1.2-*` archives that were built. The release notes name them. `darwin-arm64` is not attached until that Mac build exists.
+The public command is `thirp`. A release attaches the `thirp-cli-0.1.3-*` archives that were built. The release notes name them. `darwin-arm64` is not attached until that Mac build exists.
 
 Implemented commands:
 
@@ -22,7 +22,7 @@ usage: thirp  [] [ ID] [ ID]
        thirp   REQUEST_OR_GRANT
        thirp   GRANT
        thirp  SERVICE  127.0.0.1:PORT
-       thirp   ENROLLMENT_TOKEN [ PATH]
+       thirp   ENROLLMENT_TOKEN [ PATH] [--map SERVICE=127.0.0.1:PORT ...]
 global:  URL  (all commands; also ; else login-saved config; else )
          PATH
 ```

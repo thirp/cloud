@@ -1,13 +1,13 @@
 # thirp CLI
 
-The installed command is `thirp`. A [GitHub Release](https://github.com/thirp/cloud/releases) attaches the `thirp-cli-0.1.2-*` archives that were built. The release notes name them.
+The installed command is `thirp`. A [GitHub Release](https://github.com/thirp/cloud/releases) attaches the `thirp-cli-0.1.3-*` archives that were built. The release notes name them.
 
 | Archive | Machine |
 |---|---|
-| `thirp-cli-0.1.2-linux-amd64` | Linux x86_64 |
-| `thirp-cli-0.1.2-darwin-amd64` | Intel Mac |
-| `thirp-cli-0.1.2-darwin-arm64` | Apple Silicon Mac |
-| `thirp-cli-0.1.2-windows-amd64.exe` | 64-bit Windows |
+| `thirp-cli-0.1.3-linux-amd64` | Linux x86_64 |
+| `thirp-cli-0.1.3-darwin-amd64` | Intel Mac |
+| `thirp-cli-0.1.3-darwin-arm64` | Apple Silicon Mac |
+| `thirp-cli-0.1.3-windows-amd64.exe` | 64-bit Windows |
 
 ## Commands
 
@@ -23,7 +23,7 @@ usage: thirp  [] [ ID] [ ID]
        thirp   REQUEST_OR_GRANT
        thirp   GRANT
        thirp  SERVICE  127.0.0.1:PORT
-       thirp   ENROLLMENT_TOKEN [ PATH]
+       thirp   ENROLLMENT_TOKEN [ PATH] [--map SERVICE=127.0.0.1:PORT ...]
 global:  URL  (all commands; also ; else login-saved config; else )
          PATH
 ```
@@ -52,6 +52,14 @@ The session token is a file, on every OS. macOS Keychain and Windows Credential 
 | Windows | `%APPDATA%\thirp`, or `%USERPROFILE%\AppData\Roaming\thirp` | user-only ACL (current user, inheritance blocked) |
 
 Non-secrets (`api_url`, organization, environment) go in `config` in that directory. `thirp logout` deletes the session file. Tokens are not printed.
+
+Log in once per machine. Do not copy a config dir between machines: session
+refresh rotates a single-use login token and revokes its predecessor. Multiple
+`thirp connect --listen` processes on one machine may share one `--config-dir`;
+they serialize refresh using `session.lock` and adopt the saved successor. Leave
+that lock file in place while clients run. If refresh is rejected with HTTP 401,
+the listener exits with `event=session_refresh_rejected`; run `thirp login` on
+that machine before restarting it.
 
 `thirp login` binds `127.0.0.1:7645-7654` `/callback` when a browser identity provider is used. Where that flow is not enabled, use `thirp login --device`. It prints a user code and polls until approval. If the browser login-start is rejected, the CLI says to retry with `thirp login --device`.
 

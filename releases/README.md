@@ -4,9 +4,9 @@ GitHub Releases attach the `thirp` CLI archives that were built for that release
 
 | Archive | When it is built |
 |---|---|
-| `thirp-cli-0.1.2-linux-amd64` | Linux build, system OpenSSL 3 |
-| `thirp-cli-0.1.2-darwin-amd64` | Intel Mac build, static OpenSSL |
-| `thirp-cli-0.1.2-windows-amd64.exe` | Windows build, static OpenSSL |
+| `thirp-cli-0.1.3-linux-amd64` | Linux build, system OpenSSL 3 |
+| `thirp-cli-0.1.3-darwin-amd64` | Intel Mac build, static OpenSSL |
+| `thirp-cli-0.1.3-windows-amd64.exe` | Windows build, static OpenSSL |
 
 Checksums for a built archive are written next to this file when the publisher runs with `--build-cli`. Verify `SHA256SUMS` on the GitHub Release before running the binary.
 
