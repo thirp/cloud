@@ -1,0 +1,59 @@
+name: thirp-cli
+version: 0.1.4
+private_source_commit: 0efb415058d691a5d6f3ca5604dc16b808333d6b
+private_source_tree: 241a71670ab27d839cc50729bd40ca8440ee5495
+worktree: clean
+target: darwin-amd64
+runtime: 0.16.9
+build_command: odin build thirp_cli -define:OPENSSL_STATIC=true -out:thirp -collection:thirp=/Users/clay/scratch/cli-0.1.4-0efb4150/src-amd64/control/third_party/thirp-runtime-sdk-0.16.9/odin/thirp -extra-linker-flags:-L/Users/clay/scratch/cli-0.1.4-0efb4150/src-amd64/control/cli/build/openssl-darwin-amd64
+odin: odin version dev-2026-07:7c2b21925
+compiler: Apple clang version 17.0.0 (clang-1700.0.13.5)
+openssl: OpenSSL 3.5.9 603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a
+openssl_linkage: static
+openssl_sha256: 603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a
+build_host: Darwin 24.6.0 x86_64
+unsigned: true
+name: thirp-cli
+version: 0.1.4
+private_source_commit: 0efb415058d691a5d6f3ca5604dc16b808333d6b
+private_source_tree: 241a71670ab27d839cc50729bd40ca8440ee5495
+worktree: clean
+target: darwin-arm64
+runtime: 0.16.9
+build_command: odin build thirp_cli -target:darwin_arm64 -define:OPENSSL_STATIC=true -out:thirp -collection:thirp=/Users/clay/scratch/cli-0.1.4-0efb4150/src-arm64/control/third_party/thirp-runtime-sdk-0.16.9/odin/thirp -extra-linker-flags:-L/Users/clay/scratch/cli-0.1.4-0efb4150/src-arm64/control/cli/build/openssl-darwin-arm64 -arch arm64 -isysroot$SDKROOT
+odin: odin version dev-2026-07:7c2b21925
+compiler: Apple clang version 17.0.0 (clang-1700.0.13.5)
+openssl: OpenSSL 3.5.9 603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a
+openssl_linkage: static
+openssl_sha256: 603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a
+build_host: Darwin 24.6.0 x86_64
+unsigned: true
+name: thirp-cli
+version: 0.1.4
+private_source_commit: 0efb415058d691a5d6f3ca5604dc16b808333d6b
+private_source_tree: 241a71670ab27d839cc50729bd40ca8440ee5495
+worktree: clean
+target: linux-amd64
+runtime: 0.16.9
+build_command: odin build thirp_cli -out:thirp -collection:thirp=/srv/work/thirp-for-support-rel-0efb4150/control/third_party/thirp-runtime-sdk-0.16.9/odin/thirp
+odin: odin version dev-2026-07:7c2b21925
+compiler: cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+openssl: OpenSSL 3.0.13 30 Jan 2024 (Library: OpenSSL 3.0.13 30 Jan 2024)
+openssl_linkage: dynamic
+build_host: Linux 6.8.0-147-generic x86_64
+unsigned: true
+name: thirp-cli
+version: 0.1.4
+private_source_commit: 0efb415058d691a5d6f3ca5604dc16b808333d6b
+private_source_tree: 241a71670ab27d839cc50729bd40ca8440ee5495
+worktree: clean
+target: windows-amd64
+runtime: 0.16.9
+build_command: odin build thirp_cli -define:OPENSSL_STATIC=true -out:thirp.exe -collection:thirp=C:\owen\cli014f\src\control\third_party\thirp-runtime-sdk-0.16.9\odin\thirp -extra-linker-flags:/LIBPATH:C:\owen\cli014f\src\control\cli\build\openssl-windows-amd64
+odin: C:\owen\m1b\odin\odin.exe version dev-2026-07:7c2b21925
+compiler: Microsoft (R) C/C++ Optimizing Compiler Version 19.44.35229 for x64
+openssl: OpenSSL 3.5.9 603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a
+openssl_linkage: static
+openssl_sha256: 603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a
+build_host: Microsoft Windows 11 Pro 10.0.26300 AMD64
+unsigned: true
