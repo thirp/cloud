@@ -35,11 +35,11 @@ This list is generated from the implemented CLI. Documentation does not invent e
 
 ## Install
 
-Verify `SHA256SUMS` before running a downloaded binary. These dev builds are unsigned.
+Verify `SHA256SUMS` before running a downloaded binary. Release builds are signed on every OS; the macOS build is also notarized.
 
 Linux: the binary needs the distro OpenSSL 3 (`libssl.so.3`) and the system CA bundle. Put the file on `PATH` as `thirp`.
 
-macOS (Intel or Apple Silicon): the binary links OpenSSL statically. A stock Mac does not need Homebrew or a separate OpenSSL install. Copy the file to a directory on `PATH` and `chmod 755` it. Gatekeeper may refuse an unsigned binary; for a dev build, remove the quarantine flag after you have checked the checksum (`xattr -d com.apple.quarantine thirp`) or allow it in System Settings. Certificate checks use the system trust store (Keychain anchors, then `/etc/ssl/cert.pem`).
+macOS (Intel or Apple Silicon): the binary links OpenSSL statically. A stock Mac does not need Homebrew or a separate OpenSSL install. Copy the file to a directory on `PATH` and `chmod 755` it. A release build is notarized, so Gatekeeper accepts it. Only an unsigned dev build needs the quarantine flag removed after you have checked the checksum (`xattr -d com.apple.quarantine thirp`). Certificate checks use the system trust store (Keychain anchors, then `/etc/ssl/cert.pem`).
 
 Windows: the binary links OpenSSL statically and the CRT statically. Do not install OpenSSL. Certificate checks go through the Windows certificate chain engine, which can fetch a root that is not already in the store. Put `thirp.exe` on `PATH`.
 
@@ -73,6 +73,17 @@ that machine before restarting it.
 `thirp agent enroll` writes `agent.token` (mode `0600`) and `agent.conf` for **`thirp-agent`** from a Thirp Runtime release.
 
 Standalone `thirp-connect` is a Runtime binary with explicit Broker host, TLS, and token. It does not know about Organizations, Environments, or grants.
+
+`thirp caller enroll --name NAME [--dir PATH] [--env ID] [--map SERVICE=127.0.0.1:PORT ...]` enrolls a machine as a standing caller. It needs a signed-in session once, and writes `caller.token` and `caller.conf` (one `service` line per `--map`; more lines may be added by hand). `thirp caller list [--env ID]` shows enrolled machines, and `thirp caller revoke ID` revokes one.
+
+Then run the Runtime `thirp-connect --caller-conf PATH` against that `caller.conf`. One process serves every link in the file. It does not use the CLI session, so it keeps working after the session ends, and it rotates its own credential before expiry. `--caller-conf` needs Thirp Runtime 0.16.10 or later.
+
+| OS | `caller.token` and `caller.conf` |
+|---|---|
+| Linux and macOS | files mode `0600`, directory `0700` |
+| Windows | DACL granting full access only to the current user and SYSTEM, inheritance off (a single SYSTEM entry when run as LocalSystem) |
+
+`thirp-connect --caller-conf` refuses to start if either file is readable or writable by anyone else.
 
 ## Checksums
 
