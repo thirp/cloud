@@ -824,6 +824,163 @@ paths:
       responses:
         "200":
           description: Revoked
+  /v1/organizations/{org_id}/caller-enrollments:
+    post:
+      summary: Enroll a caller machine
+      description: Login session required, with the usual privileged-role MFA check. Creates a 90-day machine credential; plaintext is returned only here and on self-rotation. Callers do not count toward the Agent cap.
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: {type: string}
+                environment_id: {type: string, description: Environment UUID or empty for account scope}
+      responses:
+        "201":
+          description: Enrollment and credential plaintext once
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/CallerEnrollment"
+                  - type: object
+                    required: [token, credential_id]
+                    properties:
+                      token: {type: string, description: "thirp_cen_ machine credential; never accepted by the broker"}
+                      credential_id: {type: string, format: uuid}
+        "400":
+          description: invalid_request (malformed IDs or body, invalid name, or environment outside membership scope)
+        "401":
+          description: unauthorized (missing or unusable session, inactive user or membership, or inactive organization; caller and integration credentials refused)
+        "403":
+          description: mfa_required or subscription_inactive
+        "404":
+          description: not_found (organization or active environment not found)
+        "429":
+          description: rate_limited
+        "500":
+          description: internal
+    get:
+      summary: List enrolled callers
+      description: Login session required with the usual MFA check. Owner/Admin see all; other members see their own enrollments. No pagination.
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: environment_id, in: query, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Enrolled callers without tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: {$ref: "#/components/schemas/CallerEnrollment"}
+        "400":
+          description: invalid_request (malformed organization or environment ID)
+        "401":
+          description: unauthorized (missing or unusable session; caller and integration credentials refused)
+        "403":
+          description: mfa_required
+        "429":
+          description: rate_limited
+        "500":
+          description: internal
+  /v1/organizations/{org_id}/caller-enrollments/{enrollment_id}/revoke:
+    post:
+      summary: Revoke a caller enrollment and its held credentials
+      description: Login session required with the usual MFA check. Owner/Admin or the enrolling user may revoke. Revocation also revokes grants created by this enrollment with no other live holder.
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+        - {name: enrollment_id, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object, properties: {}}
+      responses:
+        "200":
+          description: Enrollment with state revoked
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/CallerEnrollment"}
+        "400":
+          description: invalid_request (malformed organization or enrollment ID)
+        "401":
+          description: unauthorized (missing or unusable session; caller and integration credentials refused)
+        "403":
+          description: mfa_required or access_denied (neither Owner/Admin nor enrolling user)
+        "404":
+          description: not_found (enrollment not found)
+        "429":
+          description: rate_limited
+        "500":
+          description: internal
+  /v1/organizations/{org_id}/caller-enrollments/self:
+    get:
+      summary: Get this caller enrollment
+      description: Requires a usable thirp_cen_ bearer credential bound to this organization and an active enrolling user and membership. Session and integration credentials are refused.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      responses:
+        "200":
+          description: Current enrollment without token
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/CallerEnrollment"}
+        "400":
+          description: invalid_request (malformed organization ID)
+        "401":
+          description: unauthorized (missing, expired, revoked, or out-of-scope caller credential; inactive user, membership, or organization)
+        "403":
+          description: mfa_required (an unverified privileged session supplied instead of a caller credential)
+        "429":
+          description: rate_limited
+        "500":
+          description: internal
+  /v1/organizations/{org_id}/caller-enrollments/self/rotate:
+    post:
+      summary: Rotate this caller enrollment credential
+      description: Requires a usable thirp_cen_ bearer credential within 30 days of expiry. Issues a new 90-day credential; old credentials expire at the earlier of their existing expiry and now plus 24 hours. Plaintext is returned once.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrgId"
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object, properties: {}}
+      responses:
+        "200":
+          description: Replacement credential and overlap expiry
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, credential_id, expires_at, previous_expires_at]
+                properties:
+                  token: {type: string}
+                  credential_id: {type: string, format: uuid}
+                  expires_at: {type: string, format: date-time}
+                  previous_expires_at: {type: string, format: date-time}
+        "400":
+          description: invalid_request (malformed organization ID or credential outside rotation window)
+        "401":
+          description: unauthorized (missing, expired, revoked, or out-of-scope caller credential; inactive user, membership, or organization)
+        "403":
+          description: mfa_required (an unverified privileged session supplied instead of a caller credential)
+        "429":
+          description: rate_limited
+        "500":
+          description: internal
   /v1/agent-enrollments/exchange:
     post:
       summary: Exchange enrollment token for Agent credential
@@ -1220,6 +1377,19 @@ components:
       type: http
       scheme: bearer
   schemas:
+    CallerEnrollment:
+      type: object
+      required: [id, name, user_id, user_email, environment_id, state, last_used_at, expires_at, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        user_id: {type: string, format: uuid}
+        user_email: {type: string}
+        environment_id: {type: string, description: Environment UUID or empty for account scope}
+        state: {type: string, enum: [active, revoked, expired]}
+        last_used_at: {type: string, format: date-time, nullable: true}
+        expires_at: {type: string, format: date-time, nullable: true}
+        created_at: {type: string, format: date-time}
     Error:
       type: object
       properties:

@@ -1,18 +1,21 @@
 # thirp CLI
 
-The installed command is `thirp`. A [GitHub Release](https://github.com/thirp/cloud/releases) attaches the `thirp-cli-0.1.4-*` archives that were built. The release notes name them.
+The installed command is `thirp`. A [GitHub Release](https://github.com/thirp/cloud/releases) attaches the `thirp-cli-0.1.5-*` archives that were built. The release notes name them.
 
 | Archive | Machine |
 |---|---|
-| `thirp-cli-0.1.4-linux-amd64` | Linux x86_64 |
-| `thirp-cli-0.1.4-darwin-amd64` | Intel Mac |
-| `thirp-cli-0.1.4-darwin-arm64` | Apple Silicon Mac |
-| `thirp-cli-0.1.4-windows-amd64.exe` | 64-bit Windows |
+| `thirp-cli-0.1.5-linux-amd64` | Linux x86_64 |
+| `thirp-cli-0.1.5-darwin-amd64` | Intel Mac |
+| `thirp-cli-0.1.5-darwin-arm64` | Apple Silicon Mac |
+| `thirp-cli-0.1.5-windows-amd64.exe` | 64-bit Windows |
 
 ## Commands
 
 ```
-usage: thirp  [] [ ID] [ ID]
+usage: thirp caller enroll --name NAME [--dir PATH] [--env ID] [--map SERVICE=127.0.0.1:PORT ...]
+       thirp caller list [--env ID]
+       thirp caller revoke ID
+       thirp  [] [ ID] [ ID]
         headless login uses 
        thirp 
        thirp  

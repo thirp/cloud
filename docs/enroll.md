@@ -7,7 +7,7 @@
 1. Create an Agent on the Environment (console or `POST /v1/organizations/{org_id}/environments/{env_id}/agents`) with a display name and Service IDs. Persist the enrollment token once.
 2. Run `thirp agent enroll ENROLLMENT_TOKEN [--dir PATH] [--api-url URL] [--map SERVICE=127.0.0.1:PORT ...]`. `--api-url` is global. Resolution order is `--api-url`, then `THIRP_API_URL`, then the `api_url` saved by login, then `https://api.thirp.io`. A local control plane uses the override, for example `--api-url http://127.0.0.1:8080`. Local deploys pass `--api-url`.
 3. Files written: `agent.token` mode `0600`, and `agent.conf` with `broker`, `token_file`, `tls_ca` pointing to `broker.crt`, `tls_server_name` when supplied, and the requested `map = SERVICE=IP:port` lines. The token is not inlined. The Broker CA PEM returned by exchange is written beside the config; an empty legacy exchange uses the hosted Broker CA roots. The enroll response supplies the Broker host; hosted names follow `<region>.broker.thirp.io`.
-4. Run `thirp-agent` from a Thirp Runtime **0.16.9** (or later protocol-compatible) release with that config directory.
+4. Run `thirp-agent` from a Thirp Runtime **0.16.10** (or later protocol-compatible) release with that config directory.
 
 The source CLI accepts a repeated `--map SERVICE=IP:port` and writes each local TCP target. Published CLI 0.1.3 and 0.1.4 include it; CLI 0.1.2 and earlier do not. The new console installer exchanges directly and installs the Runtime service without downloading a CLI. If the thing you want to publish is a log file, see [Publishing a log file as a Service](log_files.md).
 
