@@ -252,9 +252,12 @@ paths:
           description: Organization list
   /v1/organizations/{org_id}:
     get:
+      operationId: get_organization
+      x-mcp-annotations: {"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true}
       summary: Get organization
+      description: "Cloud for Platforms: Read the account plan and default_region_id for connect info. A person signs up and pays on thirp.net before setting up a paid account."
       parameters:
-        - $ref: "#/components/parameters/OrgId"
+        - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
       responses:
         "200":
           description: Organization
@@ -334,6 +337,7 @@ paths:
   /v1/organizations/{org_id}/environments:
     get:
       operationId: list_environments
+      x-mcp-annotations: {"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true}
       summary: list environments
       description: List environments with additive agent_status (online, offline, missing-agent) and Services.
       parameters:
@@ -428,33 +432,43 @@ paths:
           description: Environment with Vendor approval permitted with audit
   /v1/organizations/{org_id}/services:
     get:
+      operationId: list_services
+      x-mcp-annotations: {"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true}
       summary: List services
-      description: Platforms Services belong to the operator account and return environment_id as null. Support Services retain their Environment scope. Archived Services remain in the API list with state archived.
+      description: "Cloud for Platforms: List account Services. Platforms Services belong to the operator account and return environment_id as null. Support Services retain their Environment scope. Archived Services remain in the API list with state archived."
       parameters:
-        - $ref: "#/components/parameters/OrgId"
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Cursor"
-        - name: environment_id
-          in: query
-          schema: {type: string, format: uuid}
+        - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+        - {"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":100,"default":50}}
+        - {"name":"cursor","in":"query","schema":{"type":"string"}}
+        - {"name":"environment_id","in":"query","schema":{"type":"string","format":"uuid"}}
       responses:
         "200":
           description: Service list
     post:
+      operationId: create_service
+      x-mcp-annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false}
       summary: Create service
-      description: Supply service_id and display_name. Support requires a valid environment_id. Platforms omits environment_id (null or empty also accepted), persists NULL, and creates no Environment. Names follow the existing protocol Service ID validation and are unique per Platforms account among non-archived Services. Platforms includes 25 named Services; a twenty-sixth is refused with quota_exceeded. Archiving frees a slot and the name.
+      description: "Cloud for Platforms: Supply service_id and display_name. For a paid Platforms account, omit environment_id. The HTTP route also accepts null or empty for Platforms, persists NULL, and creates no Environment. Cloud for Support requires a valid environment_id. Names follow the existing protocol Service ID validation and are unique per Platforms account among non-archived Services. Platforms includes 25 named Services. An attempt to create a twenty-sixth returns quota_exceeded. Archiving frees a slot and the name. A person signs up and pays on thirp.net."
       parameters:
-        - $ref: "#/components/parameters/OrgId"
+        - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
         - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"type":"object","properties":{"service_id":{"type":"string"},"display_name":{"type":"string"},"environment_id":{"type":"string"}},"required":["service_id","display_name"],"additionalProperties":false}
       responses:
         "201":
           description: Service
   /v1/organizations/{org_id}/services/{id}:
     get:
+      operationId: get_service
+      x-mcp-annotations: {"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true}
       summary: Get service
+      description: "Cloud for Platforms: Read a Service by catalog ID and inspect its registration. After a person enrolls the machine with thirp caller enroll, use thirp-connect --caller-conf PATH there. For short-lived access, a person uses the console or thirp connect."
       parameters:
-        - $ref: "#/components/parameters/OrgId"
-        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+        - {"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
       responses:
         "200":
           description: Service with catalog `state` and `registration` live status
@@ -487,6 +501,7 @@ paths:
   /v1/organizations/{org_id}/audit-events:
     get:
       operationId: list_audit
+      x-mcp-annotations: {"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true}
       summary: list audit
       description: Existing audit list with existing scope and filters.
       parameters:
@@ -570,12 +585,15 @@ paths:
                   url: {type: string, format: uri}
   /v1/organizations/{org_id}/usage:
     get:
+      operationId: get_usage
+      x-mcp-annotations: {"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true}
       summary: Usage summary for a time window
+      description: "Cloud for Platforms: Read account usage and quotas. Supply from and to for a window of up to 90 days."
       parameters:
-        - $ref: "#/components/parameters/OrgId"
-        - {name: from, in: query, schema: {type: string, format: date-time}}
-        - {name: to, in: query, schema: {type: string, format: date-time}}
-        - {name: environment_id, in: query, schema: {type: string, format: uuid}}
+        - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+        - {"name":"from","in":"query","schema":{"type":"string","format":"date-time"}}
+        - {"name":"to","in":"query","schema":{"type":"string","format":"date-time"}}
+        - {"name":"environment_id","in":"query","schema":{"type":"string","format":"uuid"}}
       responses:
         "200":
           description: Gauges plus windowed connection counters and quotas. Default window last 24h, max 90 days.
@@ -655,9 +673,12 @@ paths:
           description: Store unavailable
   /v1/regions/{id}:
     get:
+      operationId: get_region
+      x-mcp-annotations: {"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true}
       summary: Inspect region endpoint, state, and operational_status
+      description: "Cloud for Platforms: Use the account default_region_id to look up its public_endpoint and operational_status. After a person enrolls the machine with thirp caller enroll, use thirp-connect --caller-conf PATH there. For short-lived access, a person uses the console or thirp connect."
       parameters:
-        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
       responses:
         "200":
           description: Region with operational_status (healthy|draining|replacing|unavailable) and optional active broker summary
@@ -738,11 +759,14 @@ paths:
         "201":
           description: Agent with environment_id null and enrollment token once
     get:
+      operationId: list_agents
+      x-mcp-annotations: {"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true}
       summary: List Agents
+      description: "Cloud for Platforms: List the account Agents. Use send_platform_agent_install to email instructions that a person runs on the Agent host."
       parameters:
-        - $ref: "#/components/parameters/OrgId"
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Cursor"
+        - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+        - {"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":100,"default":50}}
+        - {"name":"cursor","in":"query","schema":{"type":"string"}}
       responses:
         "200":
           description: Agent list
@@ -768,10 +792,13 @@ paths:
         "403":
           description: Owner required or plan cap exceeded
     get:
+      operationId: get_agent
+      x-mcp-annotations: {"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true}
       summary: Get Agent
+      description: "Cloud for Platforms: Read an Agent by ID, including online status and last_seen_at. A person runs the instructions emailed by send_platform_agent_install to install the Agent."
       parameters:
-        - $ref: "#/components/parameters/OrgId"
-        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+        - {"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
       responses:
         "200":
           description: Agent including `last_seen_at` and `online`
@@ -866,11 +893,13 @@ paths:
         "500":
           description: internal
     get:
+      operationId: list_caller_enrollments
+      x-mcp-annotations: {"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true}
       summary: List enrolled callers
-      description: Login session required with the usual MFA check. Owner/Admin see all; other members see their own enrollments. No pagination.
+      description: "Cloud for Platforms: List visible Caller enrollments without tokens. A login session is required with the usual MFA check. Owners and Admins see all enrollments. Other members see their own enrollments. The list has no pagination. After a person enrolls the machine with thirp caller enroll, use thirp-connect --caller-conf PATH there. For short-lived access, a person uses the console or thirp connect."
       parameters:
-        - $ref: "#/components/parameters/OrgId"
-        - {name: environment_id, in: query, schema: {type: string, format: uuid}}
+        - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+        - {"name":"environment_id","in":"query","schema":{"type":"string","format":"uuid"}}
       responses:
         "200":
           description: Enrolled callers without tokens
@@ -895,15 +924,17 @@ paths:
           description: internal
   /v1/organizations/{org_id}/caller-enrollments/{enrollment_id}/revoke:
     post:
+      operationId: revoke_caller_enrollment
+      x-mcp-annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true}
       summary: Revoke a caller enrollment and its held credentials
-      description: Login session required with the usual MFA check. Owner/Admin or the enrolling user may revoke. Revocation also revokes grants created by this enrollment with no other live holder.
+      description: "Cloud for Platforms: Revoke a Caller enrollment. A login session is required with the usual MFA check. An Owner, Admin, or the enrolling user can revoke it. Revocation also revokes grants created by this enrollment with no other live holder."
       parameters:
-        - $ref: "#/components/parameters/OrgId"
-        - {name: enrollment_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {"name":"org_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
+        - {"name":"enrollment_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}
       requestBody:
         content:
           application/json:
-            schema: {type: object, properties: {}}
+            schema: {"type":"object","properties":{},"additionalProperties":false}
       responses:
         "200":
           description: Enrollment with state revoked
@@ -991,6 +1022,7 @@ paths:
   /v1/organizations/{org_id}/environments/{env_id}/access-requests:
     post:
       operationId: request_access
+      x-mcp-annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false}
       summary: request access
       description: Create existing time-bounded access request. Supply duration_seconds or requested_end_at.
       parameters:
@@ -1052,6 +1084,7 @@ paths:
   /v1/organizations/{org_id}/access-requests/{id}:
     get:
       operationId: grant_status
+      x-mcp-annotations: {"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true}
       summary: grant status
       description: Existing request fields plus grants and status pending, active, denied, expired or revoked. Windows and decisions are in grants.
       parameters:
@@ -1130,6 +1163,7 @@ paths:
   /v1/organizations/{org_id}/access-grants/{id}/revoke:
     post:
       operationId: revoke_access
+      x-mcp-annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true}
       summary: revoke access
       description: Revoke existing grant and reset bounded streams.
       parameters:
@@ -1146,6 +1180,7 @@ paths:
   /v1/organizations/{org_id}/access-grants/{id}/credentials:
     post:
       operationId: connect
+      x-mcp-annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false}
       summary: connect
       description: Reissue bounded Caller credential and Broker connection material. For an account grant, reissue revokes its previous credentials. CLI or SDK opens the stream; MCP does not carry streams. Refuses outside the grant window.
       parameters:
@@ -1218,6 +1253,7 @@ paths:
   /v1/organizations/{org_id}/environment-selections:
     post:
       operationId: ensure_environment
+      x-mcp-annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":true}
       summary: ensure environment
       description: Select by external_deployment_id plus external_customer_id when supplied, otherwise by exact trimmed name; create through existing create handler and plan limits. Serialized by the API write mutex. Returns 200 selected or 201 created.
       parameters:
@@ -1249,6 +1285,7 @@ paths:
   /v1/organizations/{org_id}/agent-installs:
     post:
       operationId: send_platform_agent_install
+      x-mcp-annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false}
       summary: Email a one-step Platforms Agent install
       description: Account-scoped, Owner only. Exactly the four shipped OS and architecture pairs. One-use enrollment code is mail-only, hash stored, excluded from response and access logs. Delivery failure revokes it. Maps pair each selected Service with a numeric local TCP endpoint.
       parameters:
@@ -1264,6 +1301,7 @@ paths:
   /v1/organizations/{org_id}/environments/{env_id}/agent-installs:
     post:
       operationId: send_agent_install
+      x-mcp-annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false}
       summary: send agent install
       description: Supply both os and arch to save the Environment platform, or omit both to reuse it. Refuses without a known platform. Allowed pairs are linux/amd64, darwin/amd64, darwin/arm64, windows/amd64. Mail includes matching CLI and Runtime URL and SHA-256 pairs. Mint existing one-use enrollment and synchronously email it; code never returned or persisted in the outbox. Reusing display_name expands the named Agent Service authorization. Delivery failure revokes the code.
       parameters:
@@ -1282,6 +1320,7 @@ paths:
   /v1/organizations/{org_id}/access-requests/{id}/approve-link:
     post:
       operationId: send_approve_link
+      x-mcp-annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false}
       summary: send approve link
       description: Queue mail to active Environment Approvers. Link opens authenticated console request page; only explicit POST approves. No tool can approve.
       parameters:
@@ -1298,6 +1337,7 @@ paths:
   /v1/organizations/{org_id}/access-requests/{id}/report:
     get:
       operationId: get_report
+      x-mcp-annotations: {"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true}
       summary: get report
       description: Request and grants with requester, decider, windows, revoke and expiry; matching connections including opened and closed times.
       parameters:
@@ -1326,7 +1366,7 @@ paths:
           description: Authentication required
     post:
       summary: MCP Streamable HTTP JSON-RPC 2.0
-      description: Stateless JSON responses. Supports initialize, notifications/initialized, ping, tools/list and tools/call. Exactly ten tools whose schemas derive from the matching operation parameters and JSON request body. Same session or Service Identity bearer authentication; an invalid Origin is refused. No server initiated messages or stream transport.
+      description: Stateless JSON responses. Supports initialize, notifications/initialized, ping, tools/list and tools/call. 21 tools (11 Cloud for Support and 10 Cloud for Platforms), with annotations from x-mcp-annotations and input schemas from the matching operation parameters and JSON request body. Same session or Service Identity bearer authentication; an invalid Origin is refused. No server initiated messages or stream transport.
       responses:
         "200":
           description: JSON-RPC response or MCP tool result with isError and existing API error

@@ -1,13 +1,15 @@
 # Agents and MCP
 
-Thirp's MCP tools let a vendor's AI client arrange customer-approved support access. The vendor's AI client calls MCP. The customer-side Thirp Agent is the enrolled `thirp-agent` running on the customer machine; `send_agent_install` emails the customer the installer and enrollment instructions for that setup.
+Thirp's MCP tools let an AI client arrange customer-approved support access or manage a Cloud for Platforms account. The vendor's AI client calls MCP. The customer-side Thirp Agent is the enrolled `thirp-agent` running on the customer machine; `send_agent_install` emails the customer the installer and enrollment instructions for that setup.
 
 MCP and the public OpenAPI are the same contract. Each MCP tool is one OpenAPI operation; `tools/list` builds each tool's input schema from that operation's parameters and JSON request body. See the [OpenAPI spec](https://api.thirp.io/v1/openapi.yaml), also published in this repository as [openapi/v1.yaml](../openapi/v1.yaml).
 
-The ten tools support these steps:
+## Cloud for Support tools
+
+Eleven tools support the Cloud for Support workflow and Agent setup.
 
 - Recognize: `list_environments` lists environments the caller can see; `ensure_environment` selects or creates the named environment.
-- Enroll: `send_agent_install` emails the Agent installer to the customer.
+- Enroll: `send_agent_install` emails the Agent installer to the customer. `send_platform_agent_install` emails one-step install instructions for an account-scoped Agent.
 - Request: `request_access` creates an access request; `send_approve_link` emails the customer-side Approver the review link; `grant_status` reads grant status.
 - Connect: `connect` returns connection details for an approved grant.
 - Report: `get_report` fetches one support report; `list_audit` lists audit events.
@@ -19,18 +21,19 @@ Connect an MCP client to `POST https://api.thirp.io/v1/mcp`. This is stateless M
 
 Use either the existing Organization Service Identity bearer credential for unattended hosts, or the person's existing signed-in Thirp user session. Both use `Authorization: Bearer …`; same-origin browser clients can use the existing HttpOnly session cookie. A browser Origin must match the configured public origin. Authenticate every MCP request. Authenticated GET and DELETE return 405 with `Allow: POST`. Do not put session tokens in chat, URLs, logs, or skill files. Integration roles/scopes, session roles/scopes, plan limits and grant ownership are the same as the corresponding `/v1` handlers. No new auth or grant model is introduced.
 
-| Tool / OpenAPI operationId | Method and path | Purpose |
-| --- | --- | --- |
-| `list_environments` | GET `/v1/organizations/{org_id}/environments` | List environments the caller can see. |
-| `ensure_environment` | POST `/v1/organizations/{org_id}/environment-selections` | Create the named environment if it is missing. |
-| `send_agent_install` | POST `/v1/organizations/{org_id}/environments/{env_id}/agent-installs` | Email the Agent installer. |
-| `request_access` | POST `/v1/organizations/{org_id}/environments/{env_id}/access-requests` | Create an access request. |
-| `send_approve_link` | POST `/v1/organizations/{org_id}/access-requests/{id}/approve-link` | Email the Approver the review link. |
-| `grant_status` | GET `/v1/organizations/{org_id}/access-requests/{id}` | Read grant status. |
-| `connect` | POST `/v1/organizations/{org_id}/access-grants/{id}/credentials` | Return connection details for an approved grant. |
-| `get_report` | GET `/v1/organizations/{org_id}/access-requests/{id}/report` | Fetch one support report. |
-| `list_audit` | GET `/v1/organizations/{org_id}/audit-events` | List audit events. |
-| `revoke_access` | POST `/v1/organizations/{org_id}/access-grants/{id}/revoke` | Revoke an approved grant. |
+| Tool / OpenAPI operationId | Method and path | Purpose | readOnlyHint | destructiveHint | idempotentHint |
+| --- | --- | --- | --- | --- | --- |
+| `list_environments` | GET `/v1/organizations/{org_id}/environments` | List environments the caller can see. | true | false | true |
+| `ensure_environment` | POST `/v1/organizations/{org_id}/environment-selections` | Create the named environment if it is missing. | false | false | true |
+| `send_platform_agent_install` | POST `/v1/organizations/{org_id}/agent-installs` | Email one-step instructions for an account-scoped Agent. | false | false | false |
+| `send_agent_install` | POST `/v1/organizations/{org_id}/environments/{env_id}/agent-installs` | Email the Agent installer. | false | false | false |
+| `request_access` | POST `/v1/organizations/{org_id}/environments/{env_id}/access-requests` | Create an access request. | false | false | false |
+| `send_approve_link` | POST `/v1/organizations/{org_id}/access-requests/{id}/approve-link` | Email the Approver the review link. | false | false | false |
+| `grant_status` | GET `/v1/organizations/{org_id}/access-requests/{id}` | Read grant status. | true | false | true |
+| `connect` | POST `/v1/organizations/{org_id}/access-grants/{id}/credentials` | Return connection details for an approved grant. | false | true | false |
+| `get_report` | GET `/v1/organizations/{org_id}/access-requests/{id}/report` | Fetch one support report. | true | false | true |
+| `list_audit` | GET `/v1/organizations/{org_id}/audit-events` | List audit events. | true | false | true |
+| `revoke_access` | POST `/v1/organizations/{org_id}/access-grants/{id}/revoke` | Revoke an approved grant. | false | true | true |
 
 `tools/list` derives each `inputSchema` directly from that operation's OpenAPI parameters and JSON request-body schema. Parameters are top-level tool arguments; the HTTP JSON body is nested in the `body` argument. For example:
 
@@ -67,3 +70,25 @@ An Environment needs an active Approver membership before `send_approve_link`; i
 Approval mail's primary and alternate links both point to the existing console request deep link. A signed-out GET redirects to sign-in; a signed-in GET only renders the request. Approval requires the Approver's explicit POST through the existing handler, with its scope/authority checks, SameSite session cookie and same-origin browser POST check. Integration identities are refused even if vendor approval was delegated. An MCP call or chat yes cannot approve.
 
 MCP cannot carry the TCP stream. `connect` returns private bounded material for the existing CLI/SDK Broker path. It refuses before the window, after expiry, and after revoke. The Broker resets streams at grant expiry/revoke using its existing policy/lease behavior. Do not print returned Caller tokens. Report data uses the same encoders as the console, including request/grant audit events so a denied decision still names the decider. Report audit facts require the existing audit-reader role (Administrator is the usual unattended role). Audit retention is the existing 90 days.
+
+
+## Cloud for Platforms tools
+
+A person signs up and pays on thirp.net before using the tools to configure a Platforms account. Use `send_platform_agent_install` to email the install instructions. A person runs them on the Agent host.
+
+| Tool / OpenAPI operationId | Method and path | Purpose | readOnlyHint | destructiveHint | idempotentHint |
+| --- | --- | --- | --- | --- | --- |
+| `list_services` | GET `/v1/organizations/{org_id}/services` | List configured Services, including archived entries. | true | false | true |
+| `create_service` | POST `/v1/organizations/{org_id}/services` | Create a Service with `service_id` and `display_name`. Omit `environment_id` for Platforms. | false | false | false |
+| `get_service` | GET `/v1/organizations/{org_id}/services/{id}` | Read a Service's catalog state and live registration. | true | false | true |
+| `list_agents` | GET `/v1/organizations/{org_id}/agents` | List Agents in the account. | true | false | true |
+| `get_agent` | GET `/v1/organizations/{org_id}/agents/{id}` | Check whether an Agent is online and when it was last seen. | true | false | true |
+| `get_usage` | GET `/v1/organizations/{org_id}/usage` | Read usage and quotas, with optional `from` and `to` timestamps. | true | false | true |
+| `get_organization` | GET `/v1/organizations/{org_id}` | Read the account plan and default region ID. | true | false | true |
+| `get_region` | GET `/v1/regions/{id}` | Read a region's public endpoint and operational status. | true | false | true |
+| `list_caller_enrollments` | GET `/v1/organizations/{org_id}/caller-enrollments` | List visible Caller enrollments without tokens. | true | false | true |
+| `revoke_caller_enrollment` | POST `/v1/organizations/{org_id}/caller-enrollments/{enrollment_id}/revoke` | Revoke an enrollment and grants it alone holds. | false | true | true |
+
+Each row shows the annotations that `tools/list` reads from OpenAPI. The two Caller enrollment tools require a user login session. An Owner, Administrator, or the enrolling user can revoke an enrollment.
+
+For Platforms connect info, get `default_region_id` from `get_organization`, then get `public_endpoint` and `operational_status` from `get_region`. The tools return connection metadata without credentials. A person at the keyboard runs `thirp caller enroll` once on the machine that will call the Service. The enrolled machine opens the link with `thirp-connect --caller-conf PATH`. For a short-lived connection, the person uses the console or `thirp connect`. The CLI opens the stream.

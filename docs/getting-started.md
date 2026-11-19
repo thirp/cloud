@@ -97,7 +97,7 @@ Supply OS and architecture from knowledge of the customer host. The vendor's AI 
 
 Use `POST https://api.thirp.io/v1/mcp` with an Organization Service Identity or the person's signed-in Thirp session. Authenticate every request and keep credentials out of chat, URLs, logs, and skill files. Configure your AI client according to its own support for MCP; the endpoint alone does not establish a session or permission to act.
 
-Follow [Agents and MCP](agents.md) for the ten tools, authentication, Streamable HTTP, JSON-RPC, and argument schemas. The [live OpenAPI](https://api.thirp.io/v1/openapi.yaml) is the corresponding API contract. MCP arranges access and retrieves its records; the customer still makes the approval decision in the browser.
+Follow [Agents and MCP](agents.md) for all 21 Cloud for Support and Cloud for Platforms tools, authentication, Streamable HTTP, JSON-RPC, and argument schemas. The [live OpenAPI](https://api.thirp.io/v1/openapi.yaml) is the corresponding API contract. MCP arranges access and retrieves its records; the customer still makes the approval decision in the browser.
 
 ### 3. Find or create the Environment and confirm its platform
 

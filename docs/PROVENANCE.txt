@@ -1,6 +1,6 @@
 name: thirp-cloud-public
 cli_version: 0.1.5
 runtime_version: 0.16.10
-private_source_commit: 55254603ba5170533f6b289a367fff579079e261
+private_source_commit: 3e1d0b3d1797f13e363f1c9b440771acdb2bbde2
 public_destination: https://github.com/thirp/cloud.git
 public_branch: main
