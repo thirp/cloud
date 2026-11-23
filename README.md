@@ -4,6 +4,8 @@ This repository contains public documentation, API contracts, and downloadable c
 
 Thirp Runtime is the open-source named-Service data plane. Thirp Cloud adds managed identity, customer-controlled approval (per request or expressly delegated to the vendor with audit), timed grants, audit, usage, and hosted operation.
 
+[Thirp Cloud for Support](https://thirp.net/cloud-for-support/): a support engineer reaches one named Service in a customer environment, with the customer's approval.
+
 ## CLI
 
 The public command is `thirp`. A release attaches the `thirp-cli-0.1.5-*` archives that were built. The release notes name them. `darwin-arm64` is not attached until that Mac build exists.
